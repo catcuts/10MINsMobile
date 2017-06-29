@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" name="viewport" id="viewport" content="width=device-width, initial-scale=1">
+        <title></title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.6/semantic.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.5.2/animate.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/1.0.28/vue.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/reqwest/2.0.5/reqwest.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.1.3/js.cookie.js"></script>
+
+        <style media="screen">
+            body {
+                padding-top: 40px;
+            }
+            .ui.very.padded.userlist.container {
+                padding-top: 50px;
+            }
+            .ui.fixed.something.menu {
+                position: fixed;top:50px;
+            }
+            .unscrollable{
+                height:100%;
+                overflow:hidden;
+            }
+            .ui.padded.modal.active {
+                transform: translate(0, -50%);
+            }
+            .ui.vertical.inverted.background.segment {
+                height: 260px;
+                background-size: cover;
+            }
+
+            .shortcut.buttons{
+                position: absolute;top:15px;left:15px;
+            }
+
+            .styleLabel:hover{
+            	transition-duration: 0.2s;
+                background-color: #D0D0D0;
+                border-color: #D0D0D0;
+                background-image: none;
+                color: rgba(0, 0, 0, 0.95);
+            }
+
+            .styleHeader{
+                color: #9F3A38 !important;
+                font-weight: normal !important;
+            }
+
+            .styleCatgMenu{
+                background-color: #D0D0D0 !important;
+                border-color: #D0D0D0 !important;
+                background-image: none !important;
+                color: rgba(0, 0, 0, 0.95) !important;
+            }
+
+            [v-cloak] { /*] { 少了空格不起作用*/
+                /*display: none !important;*/
+                visibility: hidden;
+            }
+        </style>
+    </head>
+
+    {% verbatim %}
+    <body v-cloak id="app" class="dimmable {{ canScroll }}">
+
+        <div v-show="loader.show" class="ui active inverted dimmer">
+            <div class="ui loader"></div>
+        </div>
+
+        <div  class="ui fixed inverted red borderless menu">
+            <div  v-on:click="showMenu = !showMenu" class="header item">
+                10MINs
+            </div>
+
+            <div class="right menu">
+                <div class="item">
+                    <a href="logout" class="ui tiny inverted circular button">Logout</a>
+                <!--
+                    <button v-on:click="logIn" class="ui tiny inverted circular button" type="button" name=""> Admin </button>
+                -->
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- v-if="!opps" -->
+
+        <div class="ui very padded userlist container">
+            <div class="ui big header">Operation</div>
+            <button v-on:click="modalSwitch" class="ui  tiny circular button" type="button" ><i class="icon plus"></i>NEW USER</button>
+            <div class="ui divider"></div>
+            <!-- 看来模板语言可以用javascript表达式
+                见：https://vuejs.org.cn/guide/syntax.html JavaScipt表达式 -->
+            <div class="ui big header">{{ userlist_filtered.length }} user{{ userlist_filtered.length>1 ? 's' : '' }} in the list</div>
+            <div class="ui very selection relaxed list">
+
+                <div v-for="user in userlist_filtered" class="item">
+                <!--
+                    <a href="/m/userdetail/{{ user.id }}" style="display:inline-block; width:28px; position:relative; bottom:10px; margin-bottom:0;">
+                        <img class="ui avatar image" v-bind:src="user.profile_image">
+                    </a>
+                -->
+                    <!-- 不要用 v-bind:src="{{ user.profile_image }}" -->
+                    <div class="ui image" style="display:inline-block;padding-right:0;">
+                        <a href="/m/userdetail/{{ user.id }}" style="display:block;">
+                            <img class="ui avatar image" v-bind:src="user.profile_image">
+                        </a>
+                    </div>
+                    <div class="content" style="transition-duration:2s;display:inline-block;padding-left:4px;">
+                        <a href="/m/userdetail/{{ user.id }}" class="header">{{ user.belong_to.username }}</a>
+                        <span href="sub header">{{ user.is_InvitedAuthor ? user.is_Banned ? 'Invited Author | banned' : 'Invited Author' : user.is_Banned ? 'Normal User | banned' : 'Normal User' }}</span>
+                        <!-- v-show 不支持 <template>语法
+                        见：https://vuejs.org.cn/guide/conditional.html#v-show
+                        所以不能用 {{ ...computed function and... }}
+                        但可以直接使用JavaScript表达式，如：1==2 -->
+                        <span v-show="(user.id==idSelected) && extraMenu.show" transition="bounceInLR" class="animated description">
+                            <div class="ui divider"></div>
+                            <div v-on:click="deleteUser(user)" v-bind:class="classLabel" class="ui label">
+                                DELETE
+                            </div>
+
+                            <div v-on:click="operateUser('inviteOrCancle', user)" v-bind:class="classLabel" class="ui label">
+                                {{ user.is_InvitedAuthor ? 'Cancle invite' : 'Invite Author' }}
+                            </div>
+
+                            <div v-on:click="operateUser('banOrCancle', user)" v-bind:class="classLabel"  class="ui label">
+                                {{ user.is_Banned ? 'Cancle ban' : 'Ban this user' }}
+                            </div>
+                        </span>
+                    </div>
+                    <div class="right floated content">
+                        <i v-on:click="extraMenuSwitch(user)" class="icon ellipsis vertical" style="display:inline-block;"></i>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+        
+        <div v-show="modal.show" class="ui dimmer animated {{ fadeInOut }} active">
+            <div class="ui padded  modal {{ loadingOrNot }} segment active">
+                <h3 v-bind:class="classHeader" class="ui header">{{ validatorMsg }}</h3>
+                <i v-on:click="modalSwitch" class="icon tiny close" ></i>
+
+                <div class="content">
+
+                    <form class="ui form">
+
+                        <div class="field">
+                            <input v-model="newUserInfo.username" type="text" placeholder="username | 仅支持字母、数字、下划线及其组合 ">
+                        </div>
+
+                        <div class="field">
+                            <input v-model="newUserInfo.password" type="text" placeholder="password | 可不填写，将自动生成">
+                        </div>
+
+                        <div class="field">
+                            <input v-model="newUserInfo.email" type="text" placeholder="email | 可随意或不填写">
+                        </div>
+
+                        <div class="ui secondary  menu">
+                            <a v-on:click="catgSwitch('normal')" v-bind:class="classCatgMenu_normal" class="item">
+                                normal
+                            </a>
+                            <a v-on:click="catgSwitch('author')" v-bind:class="classCatgMenu_author" class="item">
+                                author
+                            </a>
+                        </div>
+
+                    </form>
+
+                    <div v-on:click="submitNewUser" class="ui fluid positive  button" >Submit</div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <script>
+            vm = new Vue({
+                el:"#app", // 作用范围
+//              ----------------------------------------------------------------
+                data:{ // 模板作用范围内及本个Vue实例对象（即vm）中要用到的数据对象
+                    // 注：这里的数据对象可用于模板的渲染，可以用于方法和表达式的调用
+                    modal:{
+                        show:false,
+                        isLoading:false,
+                    },
+                    loader:{
+                        show:false,
+                    },
+                    extraMenu:{
+                        show:false
+                    },
+                    userlist:[],
+                    usernamelist:[],
+                    useremaillist:[],
+                    idSelected:0,
+                    classLabel:{
+                        // pass // 绑定内联样式
+                        "styleLabel":true, // 绑定内部样式
+                    },
+                    newUserInfo:{
+                        username:'',
+                        password:'',
+                        email:'',
+                        is_InvitedAuthor:false,
+                    },
+                    lastUserInfo:{
+                        username:'',
+                        password:'',
+                        email:'',
+                        is_InvitedAuthor:false,
+                    },
+                    classHeader:{
+                        // pass // 绑定内联样式
+                        "styleHeader":true, // 绑定内部样式
+                    },
+                    classCatgMenu_normal:{
+                        // pass // 绑定内联样式
+                        "styleCatgMenu":true, // 绑定内部样式
+                    },
+                    classCatgMenu_author:{
+                        // pass // 绑定内联样式
+                        "styleCatgMenu":false, // 绑定内部样式
+                    },
+                    newUserFormErr:'',
+                },
+//              ----------------------------------------------------------------
+                methods:{ // 作用范围内的元素要用到的方法
+                    //
+                    modalSwitch:function () {
+                        console.log("newUserFormErr as +NEW USER: " + this.newUserFormErr);
+                        this.newUserInfo = {
+                            username:'',
+                            password:'',
+                            email:'',
+                            is_InvitedAuthor:false
+                        };
+                        this.modal.show = !this.modal.show;
+                    },
+                    //
+                    // 看能不能简化一下逻辑，并总结逻辑设计思路
+                    catgSwitch:function (catg) {
+                        if ((catg == 'normal') && !this.classCatgMenu_normal["styleCatgMenu"]) {
+                            this.classCatgMenu_normal["styleCatgMenu"] = true;
+                            this.classCatgMenu_author["styleCatgMenu"] = false;
+                            this.newUserInfo.is_InvitedAuthor = false;
+                        } else if ((catg == 'author') && !this.classCatgMenu_author["styleCatgMenu"]) {
+                            this.classCatgMenu_normal["styleCatgMenu"] = false;
+                            this.classCatgMenu_author["styleCatgMenu"] = true;
+                            this.newUserInfo.is_InvitedAuthor = true;
+                        };
+                        console.log('newUserInfo.is_InvitedAuthor: ' + this.newUserInfo.is_InvitedAuthor);
+                    },
+                    //
+                    // 看能不能简化一下逻辑，并总结逻辑设计思路
+                    extraMenuSwitch:function (user) {
+                        // extraMenu 显示逻辑
+                        if ((this.idSelected == user.id) || this.extraMenu.show == false) {
+                            this.idSelected = user.id;
+                            this.extraMenu.show = !this.extraMenu.show;
+                        } else {
+                            this.idSelected = user.id;
+                        };
+                    },
+                    //
+                    getUserlist:function () {
+                        var self = this;
+                        self.loader.show = !self.loader.show;
+                        self.usernamelist = [];
+                        self.useremaillist = [];
+                        reqwest ({ //reqwest.js 提供的请求api返回数据的方法
+                            url:'/api/userlist/', // 请求的api的url （思考端口如何动态变化？）
+                            type:'json', // 请求数据类型：json
+                            // method:'get', // 请求方法（若为get可以省略）
+                            data:{ // 请求参数（请求的同时要改变或提交的数据）
+                                // 注意：格式 “左:右” 左数据名称要与数据模型一致
+
+                            },
+                            success:function (resp) { // 请求成功做什么
+                                console.log(resp[0]);
+                                // 注意：这里用到的数据对象最好在vm的data里有定义
+                                self.loader.show = !self.loader.show;
+                                self.userlist = resp;
+                                for (i = 0; i < self.userlist.length; i++) {
+                                    self.usernamelist.push(self.userlist[i].belong_to.username);
+                                    self.useremaillist.push(self.userlist[i].belong_to.email);
+                                };
+                            },
+                            error:function (err) { //请求失败做什么
+                                console.log(err);
+                                self.loader.show = !self.loader.show;
+                            }
+                        })
+                    },
+                    operateUser:function (operation, user) {
+                        var self = this;
+                        var id = user.id;
+                        var invitedOrNot = user.is_InvitedAuthor;
+                        var banOrNot = user.is_Banned;
+                        self.loader.show = !self.loader.show;
+                        // 赋值再用，避免请求失败后还要撤销
+                        if (operation == 'inviteOrCancle') {
+                            invitedOrNot = !invitedOrNot;
+                        };
+                        if (operation == 'banOrCancle') {
+                            banOrNot = !banOrNot;
+                        };
+                        console.log('invitedOrNot: ' + invitedOrNot);
+                        console.log('banOrNot: ' + banOrNot);
+                        reqwest ({ //reqwest.js 提供的请求api返回数据的方法
+                            url:'/api/userlist/' + id, // 请求的api的url
+                            type:'json', // 请求数据类型：json
+                            method:'put', // 请求方法
+                            data:{ // 请求参数（请求的同时要改变或提交的数据）
+                                // 注意：格式 “左:右” 左数据名称要与数据模型一致
+                                is_InvitedAuthor:invitedOrNot,
+                                is_Banned:banOrNot,
+                            },
+                            success:function (resp) { // 请求成功做什么
+                                // 注意：这里用到的数据对象最好在vm的data里有定义
+                                console.log('here!');
+                                console.log(resp);
+                                /* put请求成功后重新get数据用于刷新页面
+                                因为 put请求只会返回修改后的数据
+                                注意：基于状态的页面不会被自动刷新，就是数据已更新，
+                                因为它们只会被状态所驱动 */
+                                self.loader.show = !self.loader.show;
+                                self.getUserlist();
+                            },
+                            error:function (err) { //请求失败做什么
+                                // 请求失败要撤销更改的状态
+                                alert('sb');
+                                console.log(err);
+                                self.loader.show = !self.loader.show;
+                            }
+                        })
+                    },
+                    deleteUser:function (user) {
+                        var self = this;
+                        var id = user.id;
+                        self.loader.show = !self.loader.show;
+                        reqwest({
+                            url:'/api/userlist/' + id,
+                            type:'json',
+                            method:'delete',
+                            success:function (resp) {
+                                console.log(resp);
+                                self.loader.show = !self.loader.show;
+                                self.getUserlist();
+                            },
+                            error:function (err) { //请求失败做什么
+                                // 请求失败要撤销更改的状态
+                                alert('sb');
+                                console.log(err);
+                                self.loader.show = !self.loader.show;
+                            }
+                        })
+                    },
+                    submitNewUser:function () {
+                        console.log("newUserFormErr as submitNewUser: " + this.newUserFormErr);
+                        var self = this;
+                        if (self.newUserFormErr == '') {
+                            console.log("ready to submit new user!");
+                            // self.loader.show = !self.loader.show;
+                            self.modal.isLoading = !self.modal.isLoading;
+                            if (self.newUserInfo.password == '') { // 自动密码
+                                self.pwdGenerator();
+                            };
+                            reqwest ({ //reqwest.js 提供的请求api返回数据的方法
+                                url:'/api/userlist/', // 请求的api的url
+                                type:'json', // 请求数据类型：json
+                                method:'post', // 请求方法
+                                data:{ // 请求参数（请求的同时要改变或提交的数据）
+                                    // 注意：格式 “左:右” 左数据名称要与数据模型一致
+                                    // 思考如何post image/file by reqwest
+                                    username:self.newUserInfo.username,
+                                    password1:self.newUserInfo.password,
+                                    password2:self.newUserInfo.password,
+                                    email:self.newUserInfo.email,
+                                    is_InvitedAuthor:self.newUserInfo.is_InvitedAuthor,
+                                },
+                                success:function (resp) { // 请求成功做什么
+                                    // 注意：这里用到的数据对象最好在vm的data里有定义
+                                    console.log(resp);
+                                    /* put请求成功后重新get数据用于刷新页面
+                                    因为 put请求只会返回修改后的数据
+                                    注意：基于状态的页面不会被自动刷新，就是数据已更新，
+                                    因为它们只会被状态所驱动 */
+                                    // self.loader.show = !self.loader.show;
+                                    self.modal.isLoading = !self.modal.isLoading;
+                                    self.getUserlist();
+
+                                    self.newUserFormErr = '创建成功';
+
+                                    // self.lastUserInfo = self.newUserInfo; // 这个是按引用赋值的
+                                    self.lastUserInfo.username = self.newUserInfo.username;
+                                    self.lastUserInfo.password = self.newUserInfo.password;
+                                    self.lastUserInfo.email = self.newUserInfo.email;
+                                    //console.log("lastUserInfo: ");
+                                    //console.log(self.lastUserInfo);
+                                    //console.log("newUserInfo: ");
+                                    //console.log(self.newUserInfo);
+                                    //console.log("now change self.newUserInfo: ");
+                                    //console.log(self.newUserInfo.username = "xx");
+                                    //console.log("now see self.lastUserInfo: ");
+                                    //console.log(self.lastUserInfo.username);
+                                },
+                                error:function (err) { //请求失败做什么
+                                    // 请求失败要撤销更改的状态
+                                    console.log(self.newUserFormErr = err.responseText);
+
+                                    self.modal.isLoading = !self.modal.isLoading;
+
+                                    self.newUserFormErr = '密码还是太简单了';
+
+                                    // self.lastUserInfo = self.newUserInfo; // 这个是按引用赋值的
+                                    self.lastUserInfo.username = self.newUserInfo.username;
+                                    self.lastUserInfo.password = self.newUserInfo.password;
+                                    self.lastUserInfo.email = self.newUserInfo.email;
+                                }
+                            })
+                        } else if ((self.newUserFormErr == '创建成功') && self.infoNotChanged()) {
+                            self.newUserFormErr = '用户刚才被创建过了';
+                        }
+                    },
+                    // 用户名校验器
+                    nmeIllegal:function () {
+                        var self = this;
+                        var nme = self.newUserInfo.username;
+                        if (nme == "") {
+                            console.log("用户名不能为空： " + nme);
+                            return self.newUserFormErr = "用户名不能为空";
+                        } else if (!(/^\w+$/.test(nme))) {
+                            console.log("用户名只能由字母、数字和下划线组成： " + nme);
+                            return self.newUserFormErr = "用户名只能由字母、数字和下划线组成";
+                        } else {
+                            console.log("用户名合法: " + nme);
+                            return self.newUserFormErr = "";
+                        }
+                    },
+                    // 密码校验器
+                    pwdTooEasy:function () {
+                        var self = this;
+                        console.log("prepare validating password: " + self.newUserInfo.password);
+                        if (self.newUserInfo.password != '') {
+                            console.log("validating password: " + self.newUserInfo.password);
+                            var nme = self.newUserInfo.username;
+                            var pwd = self.newUserInfo.password;
+                            if (pwd.length < 6) { // 是否全为数字
+                                console.log("密码小于六位: " + pwd);
+                                return self.newUserFormErr = "密码小于六位";
+                            } else if (pwd ==  nme) {
+                                console.log("密码同用户名: " + pwd);
+                                return self.newUserFormErr = "密码同用户名";
+                            } else if (!(/[0-9]/.test(pwd))) {
+                                // test()方法参考：http://www.w3school.com.cn/jsref/jsref_test_regexp.asp
+                                console.log("密码缺少数字: " + pwd);
+                                return self.newUserFormErr = "密码缺少数字";
+                            } else if (!(/[a-z]/.test(pwd))) {
+                                console.log("密码缺少小写: " + pwd);
+                                return self.newUserFormErr = "密码缺少小写";
+                            } else if (!(/[A-Z]/.test(pwd))) {
+                                console.log("密码缺少大写: " + pwd);
+                                return self.newUserFormErr = "密码缺少大写";
+                            } else {
+                                console.log("密码书写合格: " + pwd);
+                                return false;
+                            }
+                        } else {
+                            console.log("密码自动生成: " + pwd);
+                            return self.newUserFormErr = "";
+                        }
+                    },
+                    // 自动密码生成器
+                    pwdGenerator:function () {
+                        var self = this;
+                        var part_1 = (self.newUserInfo.username).split("");
+                        part_1 = part_1.toString();
+                        part_1 = part_1.replace(/,/g, "_");
+                        return self.newUserInfo.password = part_1 + 'PvvcL123';
+                    },
+                    //
+                    infoNotChanged:function () { // 可能有些属性不对应，所以不直接比较
+                        if (this.newUserInfo.username != this.lastUserInfo.username) {
+                            console.log("username changed");
+                            return false;
+                        };
+                        if (this.newUserInfo.password != this.lastUserInfo.password) {
+                            console.log("password changed");
+                            return false;
+                        };
+                        if (this.newUserInfo.email != this.lastUserInfo.email) {
+                            console.log("email changed");
+                            return false;
+                        };
+                        return true;
+                    },
+                },
+//              ----------------------------------------------------------------
+                computed:{ // 作用范围内的元素要用到的表达式（表达式不同于方法）
+                    // 注意：引用的数据对象只能来自vm的data，return的是字符串
+                    canScroll:function () {
+                        if (this.modal.show) {
+                            return 'unscrollable'
+                        } else {
+                            return ''
+                        }
+                    },
+                    fadeInOut:function () {
+                        if (this.modal.show) {
+                            return ' fadeIn'
+                        } else {
+                            return ' fadeOut'
+                        }
+                    },
+                    loadingOrNot:function () {
+                        if (this.modal.isLoading) {
+                            return 'loading'
+                        } else {
+                            return ''
+                        }
+                    },
+                    userlist_filtered:function () {
+                        var newList = this.userlist.filter(function (user) {
+                                return user.belong_to.is_superuser == false
+                            })
+                        return newList
+                    },
+                    validatorMsg:function () { // 前端校验逻辑都在此
+                    // 获取来自后端的校验（被动告知，先处理已存在的）
+                        var self = this;
+                        console.log("before validate ERR: " + self.newUserFormErr);
+                        console.log("usernamelist: " + self.usernamelist);
+                        if ((self.newUserFormErr != "") && self.infoNotChanged()) {
+                            console.log("lastUserInfo: ");
+                            console.log(self.lastUserInfo.username);
+                            console.log("newUserInfo: ");
+                            console.log(self.newUserInfo.username);
+                            // 显示已存在的错误（错误后表单未变化时）
+                            return self.newUserFormErr;
+                        } else {
+                            // 待表单信息发生变化时，抛弃已存在的错误，准备重新校验
+                            console.log("ready to re-validate!");
+                            self.newUserFormErr = "";
+                        };
+                    // 校验来自输入的信息（主动校验，再处理新出现的）
+                        if (self.nmeIllegal()) { // 校验用户名合法
+                            console.log("用户名非法");
+                            return self.newUserFormErr;
+                        } else if ((self.usernamelist).indexOf(self.newUserInfo.username) != -1) {
+                            // 校验用户名重复
+                            console.log("用户名已存在");
+                            return self.newUserFormErr = "用户名已存在";
+                        } else if (self.pwdTooEasy()) { // 校验密码合法
+                            return self.newUserFormErr;
+                        } else if ((self.useremaillist).indexOf(self.newUserInfo.email) != -1 && (self.newUserInfo.email != "")) {
+                            // 校验邮箱重复
+                            return self.newUserFormErr = "邮箱已被注册";
+                        } else {
+                            return self.newUserFormErr = "";
+                        };
+                    },
+                },
+//              ----------------------------------------------------------------
+                transitions:{ // 作用范围内的元素要用到的过渡效果
+                    bounceInLR:{
+                        enterClass:'bounceInLeft',
+                        leaveClass:'bounceOutRight'
+                    }
+                },
+//              ----------------------------------------------------------------
+                ready:function () { // Vue实例对象（即vm）被创建后首先要做什么
+                    this.getUserlist()
+                }
+//              ----------------------------------------------------------------
+            })
+        </script>
+    </body>
+    {% endverbatim %}
+</html>

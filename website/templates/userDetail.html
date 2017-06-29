@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" name="viewport" id="viewport" content="width=device-width, initial-scale=1">
+        <title></title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.2.6/semantic.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.5.2/animate.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/1.0.28/vue.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/reqwest/2.0.5/reqwest.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.1.3/js.cookie.js"></script>
+
+        <style media="screen">
+            body {
+                padding-top: 40px;
+            }
+            .ui.profile.container {
+                padding-top: 60px;
+            }
+
+            .styleHeader{
+                color: #9F3A38 !important;
+                font-weight: normal !important;
+            }
+
+        </style>
+    </head>
+
+    {% verbatim %}
+    <body id="app">
+
+        <div v-show="loader.show" class="ui active inverted dimmer">
+            <div class="ui loader"></div>
+        </div>
+
+        <div  class="ui fixed inverted red borderless menu">
+            <div class="header item">
+                <a href="/m/userlistpanel/">
+                    <i class="icon angle left"></i>
+                </a>
+                10MINs
+            </div>
+
+        </div>
+
+        <!-- v-if="!opps" -->
+        <div class="ui profile container">
+            <h3 v-bind:class="classHeader" class="ui header">{{ validatorMsg }}</h3>
+            <h2 class="ui header">
+                <img v-bind:src="user.profile_image" class="ui circular image">
+                {{ (user.belong_to).username }}
+            </h2>
+            <form class="ui form error">
+                <div class="field">
+                    <label>Username</label>
+                    <input v-model="newUserInfo.username" type="text" placeholder="{{ (user.belong_to).username }}">
+                </div>
+                <div class="field">
+                    <label>Password</label>
+                    <input v-model="newUserInfo.password" type="text" placeholder="******">
+                </div>
+
+
+            </form>
+            <br>
+            <button v-on:click="submitNewUser" class="ui button" type="submit">Save</button>
+        </div>
+
+
+        <script>
+            vm = new Vue ({
+                el:"#app", // 作用范围
+//             ----------------------------------------------------------------
+                data:{ // 模板作用范围内及本个Vue实例对象（即vm）中要用到的数据对象
+                    // 注：这里的数据对象可用于模板的渲染，可以用于方法和表达式的调用
+                    user:[],
+                    userlist:[],
+                    usernamelist:[],
+                    useremaillist:[],
+                    newUserInfo:{
+                        username:'',
+                        password:'',
+                        email:'',
+                        is_InvitedAuthor:false,
+                    },
+                    lastUserInfo:{
+                        username:'',
+                        password:'',
+                        email:'',
+                        is_InvitedAuthor:false,
+                    },
+                    loader:{
+                        show:false,
+                    },
+                    classHeader:{
+                        // pass // 绑定内联样式
+                        "styleHeader":true, // 绑定内部样式
+                    },
+                    newUserFormErr:'',
+                },
+//              ----------------------------------------------------------------
+                methods:{ // 作用范围内的元素要用到的方法
+                    //
+                    getUserlist:function () {
+                        var self = this;
+                        reqwest ({ //reqwest.js 提供的请求api返回数据的方法
+                            url:'/api/userlist/', // 请求的api的url （思考端口如何动态变化？）
+                            type:'json', // 请求数据类型：json
+                            // method:'get', // 请求方法（若为get可以省略）
+                            data:{ // 请求参数（请求的同时要改变或提交的数据）
+                                // 注意：格式 “左:右” 左数据名称要与数据模型一致
+
+                            },
+                            success:function (resp) { // 请求成功做什么
+                                console.log(resp[0]);
+                                // 注意：这里用到的数据对象最好在vm的data里有定义
+
+                                self.userlist = resp;
+                                for (i = 0; i < self.userlist.length; i++) {
+                                    self.usernamelist.push(self.userlist[i].belong_to.username);
+                                    self.useremaillist.push(self.userlist[i].belong_to.email);
+                                };
+                            },
+                            error:function (err) { //请求失败做什么
+                                console.log(err);
+
+                            }
+                        })
+                    },
+                    getUserDetail:function () {
+                        var self = this;
+                        var id = window.location.href;
+                        id = id.slice(id.lastIndexOf("/")+1, id.length);
+                        console.log("id = " + id);
+                        // self.loader.show = !self.loader.show;
+                        reqwest ({ //reqwest.js 提供的请求api返回数据的方法
+                            url:'/api/userdetail/' + id, // 请求的api的url （思考端口如何动态变化？）
+                            type:'json', // 请求数据类型：json
+                            // method:'get', // 请求方法（若为get可以省略）
+                            data:{ // 请求参数（请求的同时要改变或提交的数据）
+                                // 注意：格式 “左:右” 左数据名称要与数据模型一致
+
+                            },
+                            success:function (resp) { // 请求成功做什么
+                                // console.log(resp[0]);则undefined，因为只有一个
+                                console.log(resp);
+                                // 注意：这里用到的数据对象最好在vm的data里有定义
+                                // self.loader.show = !self.loader.show;
+                                self.user = resp;
+                                console.log(self.user.id);
+                            },
+                            error:function (err) { //请求失败做什么
+                                console.log(err);
+                                alert('sb');
+                                // self.loader.show = !self.loader.show;
+                            }
+                        })
+                    },
+                    submitNewUser:function () {
+                        console.log("newUserFormErr as submitNewUser: " + this.newUserFormErr);
+                        var self = this;
+                        if (self.newUserFormErr == '') {
+                            console.log("ready to submit new user!");
+                            // self.loader.show = !self.loader.show;
+                            self.loader.show = !self.loader.show;
+                            reqwest ({ //reqwest.js 提供的请求api返回数据的方法
+                                url:'/api/userdetail/' + self.user.id, // 请求的api的url
+                                type:'json', // 请求数据类型：json
+                                method:'put', // 请求方法
+                                data:{ // 请求参数（请求的同时要改变或提交的数据）
+                                    // 注意：格式 “左:右” 左数据名称要与数据模型一致
+                                    // 思考如何post image/file by reqwest
+                                    username:self.newUserInfo.username,
+                                    password:self.newUserInfo.password,
+                                },
+                                success:function (resp) { // 请求成功做什么
+                                    // 注意：这里用到的数据对象最好在vm的data里有定义
+                                    console.log("提交成功");
+                                    /* put请求成功后重新get数据用于刷新页面
+                                    因为 put请求只会返回修改后的数据
+                                    注意：基于状态的页面不会被自动刷新，就是数据已更新，
+                                    因为它们只会被状态所驱动 */
+                                    // self.loader.show = !self.loader.show;
+                                    self.loader.show = !self.loader.show;
+                                    self.getUserDetail();
+
+                                    self.newUserFormErr = '修改成功';
+
+                                    // self.lastUserInfo = self.newUserInfo; // 这个是按引用赋值的
+                                    self.lastUserInfo.username = self.newUserInfo.username;
+                                    self.lastUserInfo.password = self.newUserInfo.password;
+                                },
+                                error:function (err) { //请求失败做什么
+                                    // 请求失败要撤销更改的状态
+                                    console.log(self.newUserFormErr = err.responseText);
+
+                                    self.loader.show = !self.loader.show;
+
+                                    self.newUserFormErr = '密码还是太简单了';
+
+                                    // self.lastUserInfo = self.newUserInfo; // 这个是按引用赋值的
+                                    self.lastUserInfo.username = self.newUserInfo.username;
+                                    self.lastUserInfo.password = self.newUserInfo.password;
+                                }
+                            })
+                        } else if ((self.newUserFormErr == '修改成功') && self.infoNotChanged()) {
+                            self.newUserFormErr = '修改成功';
+                        }
+                    },
+                    // 用户名校验器
+                    nmeIllegal:function () {
+                        var self = this;
+                        var nme = self.newUserInfo.username;
+                        if (nme == "") {
+                            console.log("用户名未修改： " + nme);
+                            return self.newUserFormErr = "";
+                        } else if (!(/^\w+$/.test(nme))) {
+                            console.log("用户名只能由字母、数字和下划线组成： " + nme);
+                            return self.newUserFormErr = "用户名只能由字母、数字和下划线组成";
+                        } else {
+                            console.log("用户名合法: " + nme);
+                            return self.newUserFormErr = "";
+                        }
+                    },
+                    // 密码校验器
+                    pwdTooEasy:function () {
+                        var self = this;
+                        console.log("prepare validating password: " + self.newUserInfo.password);
+                        if (self.newUserInfo.password != '') {
+                            console.log("validating password: " + self.newUserInfo.password);
+                            var nme = self.newUserInfo.username;
+                            var pwd = self.newUserInfo.password;
+                            if (pwd.length < 6) { // 是否全为数字
+                                console.log("密码小于六位: " + pwd);
+                                return self.newUserFormErr = "密码小于六位";
+                            } else if (pwd ==  nme) {
+                                console.log("密码同用户名: " + pwd);
+                                return self.newUserFormErr = "密码同用户名";
+                            } else if (!(/[0-9]/.test(pwd))) {
+                                // test()方法参考：http://www.w3school.com.cn/jsref/jsref_test_regexp.asp
+                                console.log("密码缺少数字: " + pwd);
+                                return self.newUserFormErr = "密码缺少数字";
+                            } else if (!(/[a-z]/.test(pwd))) {
+                                console.log("密码缺少小写: " + pwd);
+                                return self.newUserFormErr = "密码缺少小写";
+                            } else if (!(/[A-Z]/.test(pwd))) {
+                                console.log("密码缺少大写: " + pwd);
+                                return self.newUserFormErr = "密码缺少大写";
+                            } else {
+                                console.log("密码书写合格: " + pwd);
+                                return false;
+                            }
+                        } else {
+                            console.log("密码未修改: " + pwd);
+                            return self.newUserFormErr = "";
+                        }
+                    },
+                    //
+                    infoNotChanged:function () { // 可能有些属性不对应，所以不直接比较
+                        if (this.newUserInfo.username != this.lastUserInfo.username) {
+                            console.log("username changed");
+                            return false;
+                        };
+                        if (this.newUserInfo.password != this.lastUserInfo.password) {
+                            console.log("password changed");
+                            return false;
+                        };
+                        return true;
+                    },
+                },
+//              ----------------------------------------------------------------
+                computed:{ // 作用范围内的元素要用到的表达式（表达式不同于方法）
+                    // 注意：引用的数据对象只能来自vm的data，return的是字符串
+                    validatorMsg:function () { // 前端校验逻辑都在此
+                    // 获取来自后端的校验（被动告知，先处理已存在的）
+                        var self = this;
+                        var newUserFormErr;
+                        console.log("newUserFormErr (before validat): " + self.newUserFormErr);
+                        console.log("infoNotChanged: " + self.infoNotChanged());
+                        console.log("before validate ERR: " + self.newUserFormErr);
+                        if ((self.newUserFormErr != "") && self.infoNotChanged()) {
+                            console.log("lastUserInfo: ");
+                            console.log(self.lastUserInfo.username);
+                            console.log("newUserInfo: ");
+                            console.log(self.newUserInfo.username);
+                            // 显示已存在的错误（错误后表单未变化时）
+                            self.lastUserInfo.username = self.newUserInfo.username;
+                            self.lastUserInfo.password = self.newUserInfo.password;
+                            return self.newUserFormErr;
+                        } else {
+                            // 待表单信息发生变化时，抛弃已存在的错误，准备重新校验
+                            console.log("ready to re-validate!");
+                            self.newUserFormErr = "";
+                        };
+                    // 校验来自输入的信息（主动校验，再处理新出现的）
+                        if (self.nmeIllegal()) { // 校验用户名合法
+                            console.log("用户名非法");
+                            newUserFormErr = self.newUserFormErr;
+                        } else if ((self.usernamelist).indexOf(self.newUserInfo.username) != -1) {
+                            // 校验用户名重复
+                            console.log("用户名已存在");
+                            newUserFormErr = self.newUserFormErr = "用户名已存在";
+                        } else if (self.pwdTooEasy()) { // 校验密码合法
+                            console.log("密码非法");
+                            newUserFormErr = self.newUserFormErr;
+                        } else {
+                            newUserFormErr = self.newUserFormErr = "";
+                        };
+                    // 返回结果
+                        self.lastUserInfo.username = self.newUserInfo.username;
+                        self.lastUserInfo.password = self.newUserInfo.password;
+                        console.log("newUserFormErr (after validat): " + self.newUserFormErr);
+                        return newUserFormErr;
+                    },
+                },
+//              ----------------------------------------------------------------
+                transitions:{ // 作用范围内的元素要用到的过渡效果
+
+                },
+//              ----------------------------------------------------------------
+                ready:function () { // Vue实例对象（即vm）被创建后首先要做什么
+                    this.getUserlist();
+                    this.getUserDetail();
+                }
+//              ----------------------------------------------------------------
+            })
+        </script>
+    </body>
+    {% endverbatim %}
+</html>
